@@ -1,8 +1,7 @@
 const config = require('../config')
 const {
 	sanitizeString,
-	getFilledSections,
-	isAllowedSectionId,
+	getFilledEvalEntries,
 } = require('../utils/sections')
 
 const POSITIVE_INT_PATTERN = /^\d+$/
@@ -40,79 +39,90 @@ function validateScoreSubmission(body) {
 		return ['Request body must be a JSON object.']
 	}
 
-	if (!isPositiveInteger(body.test_id)) {
-		errors.push('test_id must be a positive integer.')
-	} else if (String(body.test_id).length > config.limits.idMaxDigits) {
-		errors.push('test_id is too long.')
+	if (!isPositiveInteger(body.Id_Test)) {
+		errors.push('Id_Test must be a positive integer.')
+	} else if (String(body.Id_Test).length > config.limits.idMaxDigits) {
+		errors.push('Id_Test is too long.')
 	}
 
-	if (!isPositiveInteger(body.candidate_id)) {
-		errors.push('candidate_id must be a positive integer.')
-	} else if (String(body.candidate_id).length > config.limits.idMaxDigits) {
-		errors.push('candidate_id is too long.')
+	if (!isPositiveInteger(body.Id_Candidat_Externe)) {
+		errors.push('Id_Candidat_Externe must be a positive integer.')
+	} else if (String(body.Id_Candidat_Externe).length > config.limits.idMaxDigits) {
+		errors.push('Id_Candidat_Externe is too long.')
 	}
 
-	if (body.access_url !== undefined && body.access_url !== null && body.access_url !== '') {
-		const sanitizedUrl = sanitizeUrl(String(body.access_url))
+	if (
+		body.URL_Acces_Candidature !== undefined &&
+		body.URL_Acces_Candidature !== null &&
+		body.URL_Acces_Candidature !== ''
+	) {
+		const sanitizedUrl = sanitizeUrl(String(body.URL_Acces_Candidature))
 		if (sanitizedUrl.length > config.limits.accessUrlMaxLength) {
-			errors.push('access_url is too long.')
+			errors.push('URL_Acces_Candidature is too long.')
 		}
 	}
 
-	if (!Array.isArray(body.sections)) {
-		errors.push('sections must be an array.')
+	if (!Array.isArray(body.Eval)) {
+		errors.push('Eval must be an array.')
 		return errors
 	}
 
-	const filledSections = getFilledSections(body.sections)
+	const filledEntries = getFilledEvalEntries(body.Eval)
 
-	if (filledSections.length === 0) {
-		errors.push('At least one assessment section must be filled.')
+	if (filledEntries.length === 0) {
+		errors.push('At least one assessment entry must be filled.')
 		return errors
 	}
 
-	const seenSectionIds = new Set()
+	const seenIdMatiere = new Set()
 
-	for (const [index, section] of filledSections.entries()) {
-		const label = `sections[${index}]`
+	for (const [index, entry] of filledEntries.entries()) {
+		const label = `Eval[${index}]`
 
-		if (!section || typeof section !== 'object' || Array.isArray(section)) {
+		if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
 			errors.push(`${label} must be an object.`)
 			continue
 		}
 
-		if (!isAllowedSectionId(section.section_id)) {
-			errors.push(
-				`${label}.section_id must be one of: ${config.requiredSectionIds.join(', ')}.`,
-			)
+		if (!isPositiveInteger(entry.Id_Matiere)) {
+			errors.push(`${label}.Id_Matiere must be a positive integer.`)
+		} else if (String(entry.Id_Matiere).length > config.limits.idMaxDigits) {
+			errors.push(`${label}.Id_Matiere is too long.`)
 		}
 
-		if (seenSectionIds.has(section.section_id)) {
-			errors.push(`Duplicate section_id: ${section.section_id}.`)
-		} else {
-			seenSectionIds.add(section.section_id)
+		if (isPositiveInteger(entry.Id_Matiere)) {
+			const idMatiere = Number(entry.Id_Matiere)
+			if (seenIdMatiere.has(idMatiere)) {
+				errors.push(`Duplicate Id_Matiere: ${idMatiere}.`)
+			} else {
+				seenIdMatiere.add(idMatiere)
+			}
 		}
 
-		if (!isNonNegativeNumber(section.obtained_score)) {
-			errors.push(`${label}.obtained_score must be zero or greater.`)
+		if (!isNonNegativeNumber(entry.Score)) {
+			errors.push(`${label}.Score must be zero or greater.`)
 		}
 
-		if (!isPositiveNumber(section.total_score)) {
-			errors.push(`${label}.total_score must be greater than zero.`)
+		if (!isPositiveNumber(entry.Score_Max)) {
+			errors.push(`${label}.Score_Max must be greater than zero.`)
 		}
 
 		if (
-			isNonNegativeNumber(section.obtained_score) &&
-			isPositiveNumber(section.total_score) &&
-			Number(section.obtained_score) > Number(section.total_score)
+			isNonNegativeNumber(entry.Score) &&
+			isPositiveNumber(entry.Score_Max) &&
+			Number(entry.Score) > Number(entry.Score_Max)
 		) {
-			errors.push(`${label}.obtained_score cannot exceed total_score.`)
+			errors.push(`${label}.Score cannot exceed Score_Max.`)
 		}
 
-		if (section.instructor !== undefined && section.instructor !== null && section.instructor !== '') {
-			const instructor = sanitizeString(String(section.instructor))
-			if (instructor.length > config.limits.instructorMaxLength) {
-				errors.push(`${label}.instructor is too long.`)
+		if (
+			entry.Instructeur !== undefined &&
+			entry.Instructeur !== null &&
+			entry.Instructeur !== ''
+		) {
+			const instructeur = sanitizeString(String(entry.Instructeur))
+			if (instructeur.length > config.limits.instructorMaxLength) {
+				errors.push(`${label}.Instructeur is too long.`)
 			}
 		}
 	}
@@ -121,21 +131,23 @@ function validateScoreSubmission(body) {
 }
 
 function normalizeScoreSubmission(body) {
-	const filledSections = getFilledSections(body.sections)
+	const filledEntries = getFilledEvalEntries(body.Eval)
 
 	return {
-		test_id: Number(body.test_id),
-		candidate_id: Number(body.candidate_id),
-		access_url: sanitizeUrl(body.access_url ? String(body.access_url) : ''),
-		sections: filledSections
+		Id_Test: Number(body.Id_Test),
+		Id_Candidat_Externe: Number(body.Id_Candidat_Externe),
+		URL_Acces_Candidature: sanitizeUrl(
+			body.URL_Acces_Candidature ? String(body.URL_Acces_Candidature) : '',
+		),
+		Eval: filledEntries
 			.slice()
-			.sort((a, b) => a.section_id - b.section_id)
-			.map((section) => ({
-				section_id: Number(section.section_id),
-				obtained_score: Number(section.obtained_score),
-				total_score: Number(section.total_score),
-				instructor: sanitizeString(
-					section.instructor ? String(section.instructor) : '',
+			.sort((a, b) => Number(a.Id_Matiere) - Number(b.Id_Matiere))
+			.map((entry) => ({
+				Id_Matiere: Number(entry.Id_Matiere),
+				Score: Number(entry.Score),
+				Score_Max: Number(entry.Score_Max),
+				Instructeur: sanitizeString(
+					entry.Instructeur ? String(entry.Instructeur) : '',
 				),
 			})),
 	}

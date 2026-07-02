@@ -8,7 +8,6 @@ const {
 	validateScoreSubmission,
 	normalizeScoreSubmission,
 } = require('../validators/scoreSubmission')
-const { toEmlyonPayload } = require('../utils/mapper')
 const { submitScores } = require('../services/emlyonClient')
 const { logSection, logInfo, logJson, logError } = require('../utils/logger')
 
@@ -63,12 +62,9 @@ router.post(
 			}
 
 			const normalizedPayload = normalizeScoreSubmission(req.body)
-			logJson('Normalized middleware payload', normalizedPayload)
+			logJson('Normalized Emlyon payload', normalizedPayload)
 
-			const emlyonPayload = toEmlyonPayload(normalizedPayload)
-			logJson('Mapped Emlyon payload', emlyonPayload)
-
-			const upstreamResponse = await submitScores(emlyonPayload)
+			const upstreamResponse = await submitScores(normalizedPayload)
 
 			const responseBody = {
 				success: true,

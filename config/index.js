@@ -1,7 +1,5 @@
 require('dotenv').config()
 
-const { SECTION_MAP, REQUIRED_SECTION_IDS } = require('./sectionMap')
-
 function parseAllowedOrigins() {
 	const raw = process.env.ALLOWED_ORIGINS || 'http://localhost:5173'
 	return raw
@@ -46,8 +44,6 @@ const config = {
 		accessUrlMaxLength: 500,
 		idMaxDigits: 12,
 	},
-	sectionMap: SECTION_MAP,
-	requiredSectionIds: REQUIRED_SECTION_IDS,
 }
 
 module.exports = config
